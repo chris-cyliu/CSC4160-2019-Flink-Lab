@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Top 10 HashTag</title>
+
+    <link rel="stylesheet" type="text/css" href="http://dc-js.github.io/dc.js/css/dc.css"/>
+    <script type="text/javascript" src="http://dc-js.github.io/dc.js/js/d3.js"></script>
+    <script type="text/javascript" src="http://dc-js.github.io/dc.js/js/crossfilter.js"></script>
+    <script type="text/javascript" src="http://dc-js.github.io/dc.js/js/dc.js"></script>
+</head>
+
+<body>
+
+<div id="chart-row-spenders"></div>
+
+<script type="text/javascript">
+
+
+    // init the webSocket connection to flink WebSocket sink
+    var connection = new WebSocket('ws://csci4160-1.cse.cuhk.edu.hk:32769/');
+
+    // init the data structure for storing the hashtag statistic here
+    var datastore = crossfilter(),
+        hashtagDim  = datastore.dimension(function(d) {return d.hashtag;}),
+        hashtagcount = hashtagDim.group().reduceSum(function(d){return +d.count;});
+
+    // init the chart
+    var spenderRowChart = dc.rowChart("#chart-row-spenders");
+    spenderRowChart
+        .data(function (group) { return group.top(10);})
+        .dimension(hashtagDim)
+        .group(hashtagcount)
+        .elasticX(true);
+    dc.renderAll();
+
+    // the websocket listener
+    // update the data into the data-store
+    connection.onmessage = function(event) {
+        var newData = JSON.parse(event.data);
+        var hashtag = newData.f0;
+        var count = newData.f1;
+        var updateObject =[{
+            "hashtag": hashtag,
+            "count": count,
+        }];
+
+        // a little hack to crossfilter
+        hashtagDim.filter(hashtag);
+        datastore.remove();
+        datastore.add(updateObject);
+        hashtagDim.filter(null);
+
+        //refresh the graph
+        dc.redrawAll();
+    }
+</script>
+
+</body>
+
+</html>
